@@ -1,0 +1,5 @@
+{
+    "tidy3d.preferredInstallationMode": "managed",
+    "tidy3d.preferredInstallation": "Managed Python (uv)",
+    "tidy3d.viewer.tidyVersion": "2.11.1"
+}

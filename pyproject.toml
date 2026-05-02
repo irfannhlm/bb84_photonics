@@ -1,0 +1,7 @@
+[project]
+name = "bb84-photonics"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "tidy3d>=2.11.1",
+]
