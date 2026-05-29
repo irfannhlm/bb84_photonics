@@ -1,0 +1,53 @@
+# Copyright (c) 2003-2020, Ansys, Inc. All rights reserved.  
+
+# Unauthorized use, distribution, or duplication is prohibited.  
+# This product is subject to U.S. laws governing export and re-export.  
+
+# For full Legal Notice, see documentation.
+
+addelement(design_kit_name + model);
+DUT_name_temp = get("name");
+port_names = splitstring(getports(DUT_name_temp),"\n");
+N_ports = length(port_names);
+
+select(DUT_name_temp);
+delete;
+
+for (input_port = 1:N_ports){
+
+    for (mode_number = 1:mode_no) {
+        addelement(design_kit_name + model);
+        DUT_name = get("name");
+        set("x position", 400*(mode_number-1));
+        set("y position", 200+400*(input_port-1));
+        if(exist("container_selection_code")){
+            eval(container_selection_code);
+        }
+
+        ONA_name = "ONA" + num2str(input_port) + "_" + mode_label{mode_number};
+
+        addelement("Optical Network Analyzer");
+        set("name", ONA_name);
+        set("x position", 400*(mode_number-1));
+        set("y position", 50+400*(input_port-1));
+        set("input parameter", "center and range");
+        set("plot kind", "wavelength");
+        min_frequency = c/max([max_wavelength,min_wavelength]);
+        max_frequency = c/min([max_wavelength,min_wavelength]);
+        set("center frequency", 0.5*(min_frequency+max_frequency));
+        set("frequency range", max_frequency-min_frequency);
+        set("number of points",number_wavelength_points);
+        set("orthogonal identifier", mode_ID(mode_number));
+        set("number of input ports", N_ports);
+        set("peak analysis","center");
+
+        eval("input_port_name = "+"'"+port_names{input_port}+"'"+";"); #Find name of element's port where input will be connected
+        connect(ONA_name,'output',DUT_name,input_port_name);
+
+        for (output_port = 1:N_ports){
+            eval("output_port_name="+"'"+ port_names{output_port}+"'"+";"); #Find name of element's output port
+            connect(ONA_name, "input "+num2str(output_port), DUT_name, output_port_name);
+        }
+    }
+
+}

@@ -1,0 +1,203 @@
+# Copyright (c) 2003-2020, Ansys, Inc. All rights reserved.  
+
+# Unauthorized use, distribution, or duplication is prohibited.  
+# This product is subject to U.S. laws governing export and re-export.  
+
+# For full Legal Notice, see documentation.
+function readNPortSParameter(fp) {
+        try {
+            A = readnportsparameterat(fp, [1]); 
+            found = true;
+        } catch(errMsg); 
+        #?errMsg;
+        
+        if (length(errMsg) != 0) {
+            count = 1;
+            found = false;
+
+            header_broken = false;
+            no_gd = false;
+
+            for (-1; ~found & count <= 2; -1) {
+                try {
+                    header_broken = header_broken | findstring(errMsg, "error reading header.") != -1;
+                    no_gd = no_gd | findstring(errMsg, "invalid arguments or file format.") != -1;
+                
+                    # Manually set group delay to zero if not included in the file
+                    if (header_broken | no_gd) {
+                        # Read the file text.
+                        f_text = read(fp);
+
+                        if (no_gd) {
+                            # Add 0's for all group delays.
+                            f_text = replacestring(f_text, '"transmission")', '"transmission",0)');
+                        }
+                        if (header_broken) {
+                            # Add position to port header.
+                            f_text = replacestring(f_text, '",""]', '","RIGHT"]');
+                        }
+                        
+                        # Write a temp file.
+                        write("tmp.txt", f_text,"overwrite");
+
+                        # Read the temp tile.
+                        A = readnportsparameterat("tmp.txt", [1]);
+
+                        clear(f_text);
+                        errMsg = "";
+                    }
+                    
+                } catch (errMsg);
+
+                found = length(errMsg) == 0 & length(A) > 0;
+                if (~found) {
+                    count = count + 1;
+                }
+            }
+            if (no_gd) {
+                if (count != 1){
+                    msg="Source QA test is skipped. S-parameter data does not contain group delay and hence cannot be extracted in Safe-Mode. To run source data QA, either add group delay in s-parameter text file (recommended) or run QA with Safe-Mode turned off (not recommended).";
+                    return msg;
+                }else{
+                    ?"WARNING: S-parameter data does not contain group delay! Group delay will be set to zero.";
+                }
+            }
+            if (header_broken) {
+                if (count != 1){
+                    msg="Source QA is skipped. S-Parameter data does not contain port positions and hence cannot be extracted in Safe-Mode. " + endl + "To run source data QA, either add port positions in s-parameter text file (recommended) or run QA with Safe-Mode turned off (not recommended).";
+                    return msg;
+                }else{
+                    ?"WARNING: S-Parameter data does not contain port positions! Port positions will be set to RIGHT.";
+                }
+                
+                
+            }     
+        }
+    
+    return A;
+}
+
+
+function parseSparData(fp,ports) {
+    # This function assumes that the s-parameter is in the n-port s-parameter file format.
+    
+    ret = struct;
+    
+    
+    # Get port information
+    A = readNPortSParameter(fp);
+    if (!iscell(A)) {
+        return A;
+    }else if (length(A)==3){
+        msg="Source QA is skipped. S-Parameter data does not contain port definition header. To run source data QA, add port definition header in s-parameter text file.";
+        return msg;
+    } 
+
+    ret.num_ports = length(A{4});
+    ret.port_info = A{4};
+    ret.port_names = cell(length(ret.port_info));
+    header_ports = cell(length(ret.port_info));
+    for (pid = 1:length(ports)) {
+        ret.port_names{pid} = ports{pid}.name;
+        header_ports{pid} = ret.port_info{pid}.name;
+    }
+    if(!(find(ret.port_names == header_ports{1}))){
+        ret.port_names = header_ports;
+    }
+    
+    spar_inputs = matrix(length(A{3}));
+    spar_outputs = matrix(length(A{3}));
+    spar_input_modes = matrix(length(A{3}));
+    spar_output_modes = matrix(length(A{3}));
+    spar_mode_names_temp = struct;
+    port_locs = [1];
+    max_length_data = [1];
+
+    for (sid = 1:length(A{3})) {
+        spar_inputs(sid) = find(ret.port_names == A{3}{sid}.portInput);
+        spar_outputs(sid) = find(ret.port_names == A{3}{sid}.portOutput);
+        spar_input_modes(sid) = A{3}{sid}.modeInputOID;
+        spar_output_modes(sid) = A{3}{sid}.modeOutputOID;
+        eval("spar_mode_names_temp.m" + num2str(spar_output_modes(sid)) + " = A{3}{sid}.modeOutputLabel;");
+        max_length_data = [max_length_data, length(A{3}{sid}.data(:,1))];
+        port_locs = [port_locs;(port_locs(end)+length(A{3}{sid}.data(:,1)))];
+    }
+    port_locs = port_locs(1:end-1);
+    
+    ret.mode_names = splitstring(getfield(spar_mode_names_temp), endl);
+    ret.num_modes = length(ret.mode_names);
+    for (mid = 1:ret.num_modes) {
+        eval("ret.mode_names{mid} = spar_mode_names_temp." + ret.mode_names{mid} + ";");
+    }
+    clear(spar_mode_names_temp);
+    
+    # Get S-Parameter amplitudes & phase.
+    A = readdata(fp);
+    dataSize = size(A);
+    A_store = A(1,:);
+    for (i=2:dataSize(1)){
+        if (A(i,2)!=A(i-1,2)){
+            A_store = [A_store; A(i,:)];  
+        }      
+    }
+    A = A_store;
+    
+    if (length(port_locs) != length(spar_inputs)) {
+        assert("Mistmatch between readnportsparameterat() and readdata() for " + fp, 0);
+        return 0;
+    }
+
+    ret.spar = matrix(max(max_length_data), ret.num_ports, ret.num_ports, max(spar_output_modes), max(spar_input_modes), 2); 
+    ret.freq = matrix(max(max_length_data),ret.num_ports, ret.num_ports, max(spar_output_modes), max(spar_input_modes));
+    # Dimensions : frequency, output_port, input_port, output_mode, input_mode, amplitude/phase
+
+    for (sid = 1:length(spar_inputs)) {
+        op = spar_outputs(sid);
+        ip = spar_inputs(sid);
+        om = spar_output_modes(sid);
+        im = spar_input_modes(sid);
+        
+        if (sid != length(spar_inputs)){
+            ret.spar(1:length(A(port_locs(sid):port_locs(sid + 1)-1, 1)), op, ip, om, im, :) = A(port_locs(sid):port_locs(sid+1)-1, 2:end);
+            ret.freq(1:length(port_locs(sid):port_locs(sid+1)-1), op, ip, om, im) = pinch(A(port_locs(sid):port_locs(sid+1)-1, 1)); 
+        } else {
+            ret.spar(1:length(A(port_locs(sid):end, 1)), op, ip, om, im, :) = A(port_locs(sid):end, 2:end);
+            ret.freq(1:length(A(port_locs(sid):end,1)), op, ip, om, im) = pinch(A(port_locs(sid):end, 1)); 
+        }
+    }
+    
+    # Get Group Delay Values, if available.
+    try{
+    A = read(fp);
+    
+    ret.group_delay = matrix(ret.num_ports, ret.num_ports, max(spar_output_modes), max(spar_input_modes));
+    
+    gd_idx = 1;
+    sid = 1;
+    idx_key = '"transmission",'; # The comma ensures that there's a group delay value following the transmission keyword.
+    gd_idx = findstring(A, idx_key);
+    for(-1; gd_idx != -1; -1) {
+        # Get the group delay substring
+        A = substring(A, gd_idx + length(idx_key)); # The method is destructive to improve speed.
+        gd_idx = findstring(A, ")" + endl);
+        gd_str = substring(A, 1, gd_idx-1);
+        
+        # Index the value.
+        op = spar_outputs(sid);
+        ip = spar_inputs(sid);
+        om = spar_output_modes(sid);
+        im = spar_input_modes(sid);
+        
+        ret.group_delay(op, ip, om, im) = str2num(gd_str);
+        
+        # Look for the next group delay substring.
+        gd_idx = findstring(A, idx_key);
+        sid = sid + 1;
+    }
+    } catch(errMsg);
+    if (errMsg !=''){
+        ?"WARNING: Group delay cannot be extracted in Safe-mode. Skipping group delay testing";
+    }
+    
+    return ret;
+}

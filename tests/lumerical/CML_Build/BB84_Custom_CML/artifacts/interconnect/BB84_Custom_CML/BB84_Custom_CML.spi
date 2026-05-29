@@ -1,0 +1,2 @@
+.subckt MMI_2x2_TE_c opt_1 opt_2 opt_3 opt_4 library="Design kits/BB84_Custom_CML"
+.ends

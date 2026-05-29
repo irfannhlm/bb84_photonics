@@ -1,0 +1,68 @@
+# Copyright (c) 2003-2020, Ansys, Inc. All rights reserved.  
+
+# Unauthorized use, distribution, or duplication is prohibited.  
+# This product is subject to U.S. laws governing export and re-export.  
+
+# For full Legal Notice, see documentation.
+
+Ntot = N_ports * max(mode_ID);
+S_matrix_result = matrix(Ntot,Ntot,number_wavelength_points);
+group_delay_result = matrix(Ntot,Ntot);
+
+for(mode_number_source = 1:mode_no) {
+    for (input_port = 1:N_ports){
+        for (output_port = 1:N_ports){
+            ONA_name = "ONA" + num2str(input_port) + "_" + mode_label{mode_number_source};
+            for (mode_number = 1:mode_no) {
+                # search through output mode list until we find data
+                # if we don't find it, then it means S parameter elements are 0 and we can skip
+                output_mode_count = 0;
+                for(found_result = false; !found_result; 1 ) { # a while loop
+                    output_mode_count = output_mode_count + 1;
+                    result_name = "input " + num2str(output_port) + "/mode "+num2str(output_mode_count)+"/transmission";
+                    result_name_gd = "input " + num2str(output_port) + "/mode "+num2str(output_mode_count)+"/peak/group delay";
+                    if(!haveresult(ONA_name,result_name)) {
+                        found_result = true; # just skip out, there is no more data to find
+                    } else {
+                        S_TE = getresult(ONA_name, result_name);
+                        group_delay = getresult(ONA_name, result_name_gd);
+
+                        gain_type = mode_label{mode_number} + " transmission";
+                        gain_type_gd = mode_label{mode_number} + " group delay (s)";
+                        ii = output_port + N_ports*(mode_ID(mode_number)-1);
+                        jj = input_port + N_ports*(mode_ID(mode_number_source)-1);
+                        try {
+                            # S_matrix_result(ii,jj,:) = S_TE.getattribute(gain_type); ****** BUG, can fail on first script run, see , when fixed, delete workaround below
+                            temp = S_TE.getattribute(gain_type);
+                            temp_gd = group_delay.getattribute(gain_type_gd);
+                        } catch(errMsg);
+                        if(errMsg == "") {
+                            try{
+                                S_matrix_result(ii,jj,:) = temp;
+                                group_delay_result(ii,jj)= temp_gd;
+                            }catch(errBug);
+                            if (errBug != ""){
+                                switchtodesign;
+                                run;
+                                temp = S_TE.getattribute(gain_type);
+                                temp_gd = group_delay.getattribute(gain_type_gd);
+                                S_matrix_result(ii,jj,:) = temp;
+                                #group delay
+                                group_delay_result(ii,jj)= temp_gd;
+                                
+                                msg  = "Error happened in ONA result number of points for frequency domain test.";
+                                if (test_empty_ONA){assert(msg,false);}else{assert(msg,true);}
+                            }
+
+                            #for(kkk=1:number_wavelength_points) {
+                                #S_matrix_result(ii,jj,kkk) = temp(kkk);
+                            #}
+                            wavelength_result = S_TE.wavelength;
+                            found_result = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

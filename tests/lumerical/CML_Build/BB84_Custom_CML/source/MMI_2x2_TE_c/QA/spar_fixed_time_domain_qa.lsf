@@ -1,0 +1,120 @@
+
+if (exist("source_directory")){
+    if (source_directory!=filedirectory(filedirectory(which(currentscriptname)))){
+        clear;
+        source_directory = filedirectory(filedirectory(which(currentscriptname)));
+        foundry_directory = filedirectory(filedirectory(which(source_directory)));
+        cd(filedirectory(which(currentscriptname)));
+        feval("/aux_scripts/spar_fixed_init_qa.lsf");
+    }
+}else{
+        clear;
+        source_directory = filedirectory(filedirectory(which(currentscriptname)));
+        foundry_directory = filedirectory(filedirectory(which(source_directory)));
+        cd(filedirectory(which(currentscriptname)));
+        feval("/aux_scripts/spar_fixed_init_qa.lsf");      
+}
+err=error_count;
+
+### 1. Run time domain test
+# 1.1. Setup ONAs for time domain simulation
+switchtolayout;
+for (input_port = 1:N_ports){
+    for (mode_number = 1:mode_no) {
+        ONA_name = "ONA" + num2str(input_port) + "_" + mode_label{mode_number};
+        setnamed(ONA_name,"analysis type","impulse response");
+    }
+}
+
+# 1.2. Run the simulation
+run;
+
+# 1.3. Get result
+feval("/aux_scripts/spar_extract_result"); # Return reuslt as S_matrix_result and wavelength_result
+S_complex_time = S_matrix_result;
+wavelength_time = wavelength_result;
+clear(S_matrix_result, wavelength_result); 
+
+
+assert("Wavelength in time domain and frequency domain are different, error with QA test setup",max(abs(wavelength-wavelength_time)<1e-18));
+
+
+### 2. Compare frequency and time domain results
+?"Testing model in time domain";
+#compare_time_bandwidth_fraction = 0.5; # only compare in middle region
+f1 = c/max(wavelength);
+f2 = c/min(wavelength);
+fc = 0.5*(f1+f2);
+f = c/wavelength;
+pos = find(abs(f-fc) <= compare_time_bandwidth_fraction*0.5*(f2-f1));
+if(compare_time_abs_transmission){
+    diff = max(abs(abs(S_complex(:,:,pos))-abs(S_complex_time(:,:,pos))));
+}
+else{
+    diff = max(abs(S_complex(:,:,pos)-S_complex_time(:,:,pos)));
+}
+msg = "S comparison frequency and time domain over middle " + num2str(compare_time_bandwidth_fraction) + " of bandwidth, max diff is: " + num2str(diff) + " and should be less than " + num2str(S_time_tolerance);
+pass = diff <= S_time_tolerance;
+if(!pass) {
+            error_count = error_count+1;
+        }
+assert(msg,pass);
+if(break_at_failure & !pass) { break; }
+
+
+### 3. Plot results
+if(create_plots){
+	# 3.1. plot the frequency and time results, linear scale
+    Ntot = N_ports * mode_no;
+    leg = cell(Ntot*Ntot);
+    leg_time = cell(Ntot*Ntot);
+    leg_counter = 1;
+    plotres = matrix(number_wavelength_points,Ntot*Ntot);
+    plotres_time = matrix(number_wavelength_points,Ntot*Ntot);
+    for(mode_ind_out = 1:mode_no){
+        for(mode_ind_in = 1:mode_no){
+            for(port_ind_out = 1: N_ports){
+                for(port_ind_in = 1: N_ports){
+                    i = port_ind_out + (mode_ID(mode_ind_out)-1) * N_ports;
+                    j = port_ind_in + (mode_ID(mode_ind_in)-1) * N_ports;
+
+                    plotres(:,leg_counter) = abs(S_complex(i,j,:));
+                    plotres_time(:,leg_counter) = abs(S_complex_time(i,j,:));
+
+                    leg_out = ports{port_ind_out}.name + "/" + mode_label{mode_ind_out};
+                    leg_in = ports{port_ind_in}.name + "/" + mode_label{mode_ind_in};
+
+                    leg{leg_counter} = leg_out+", "+leg_in +" frequency domain";
+                    leg_time{leg_counter} = leg_out+", "+leg_in +" time domain";
+                    leg_counter = leg_counter + 1;
+                }
+            }
+        }
+    }
+
+    plot(wavelength*1e9,plotres);
+    holdon;
+    plot(wavelength*1e9,plotres_time);
+    legend(leg, leg_time);
+    holdoff;
+
+    setplot("x label","wavelength (nm)");
+    setplot("y label","|S(i,j)|");
+    setplot("title", model + " frequency and time domain");
+    #exportfigure(model+"_time_and_frequency",800,600);
+
+    # 3.2. plot the frequency and time results, dB scale
+    plot(wavelength*1e9, 20*log10(plotres));
+    holdon;
+    plot(wavelength*1e9, 20*log10(plotres_time));
+    legend(leg, leg_time);
+    holdoff;
+    setplot("x label","wavelength (nm)");
+    setplot("y label","|S(i,j)|^2 (dB)");
+    setplot("title", model + " frequency and time domain in dB");
+    #exportfigure(model+"_time_and_frequency_dB",800,600);
+}
+
+if (err==error_count){
+?filebasename(currentscriptname)+" test passed.";
+}

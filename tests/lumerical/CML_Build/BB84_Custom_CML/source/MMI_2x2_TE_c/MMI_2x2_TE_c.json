@@ -1,0 +1,78 @@
+{
+  "general" : 
+  {
+    "description" : "Optimized 50/50 2x2 MMI - C band TE",
+    "prefix" : "MMI",
+    "notes" : 
+    {
+      "_data" : 
+      [
+        {
+          "property" : "wavelength_range",
+          "value" : "C-band (1530 - 1565 nm)"
+        },
+        {
+          "property" : "polarization",
+          "value" : "TE"
+        }
+      ],
+      "_type" : "cell"
+    }
+  },
+  "ports" : 
+  {
+    "opt_1" : 
+    {
+      "name" : "opt_1",
+      "dir" : "Bidirectional",
+      "loc" : 0.75,
+      "pos" : "Left",
+      "order" : 1
+    },
+    "opt_2" : 
+    {
+      "name" : "opt_2",
+      "dir" : "Bidirectional",
+      "loc" : 0.25,
+      "pos" : "Left",
+      "order" : 2
+    },
+    "opt_3" : 
+    {
+      "name" : "opt_3",
+      "dir" : "Bidirectional",
+      "loc" : 0.75,
+      "pos" : "Right",
+      "order" : 3
+    },
+    "opt_4" : 
+    {
+      "name" : "opt_4",
+      "dir" : "Bidirectional",
+      "loc" : 0.25,
+      "pos" : "Right",
+      "order" : 4
+    }        
+  },
+  "model_data":
+  {
+    "photonic_model" : "spar_fixed",
+    "mode_data" : 
+    {
+      "_data" : 
+      [
+        {
+          "ID" : 1.0,
+          "name" : "TE"
+        }
+      ],
+      "_type" : "cell"
+    },
+    "number_of_taps_estimation" : "group delay",
+    "digital_filter_type" : "FIR",
+    "fir_taps" : 64.0,
+    "spar_filename" : "MMI_2x2_TE_c.dat",
+    "passivity_enforcement" : "ignore",
+    "reciprocity_enforcement" : "ignore"
+  }
+}

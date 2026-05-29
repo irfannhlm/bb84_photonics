@@ -1,0 +1,156 @@
+##################################################################
+
+# Copyright (c) 2003-2020, Ansys, Inc. All rights reserved.  
+
+# Unauthorized use, distribution, or duplication is prohibited.  
+# This product is subject to U.S. laws governing export and re-export.  
+
+# For full Legal Notice, see documentation.
+
+##################################################################
+warning_elements = "";
+backward_warning="";
+backward_error="";
+### New Data Format ###
+
+if (exist("general")){
+    description=general.description;
+    prefix=general.prefix;
+    notes=general.notes;
+    clear(general);
+}
+
+if (isstruct(ports)){
+    strPorts=ports; 
+    port_labels = splitstring(getfield(ports),endl);
+    plen=length(port_labels);
+    pord=matrix(1,plen);
+    for (p=1:length(port_labels)){ # if one port has "order" field, all of the ports have to have a "order" filed.
+        eval("ordexists=isfield(strPorts."+port_labels{p}+", 'order');"); 
+        if (ordexists==1){
+            eval("pord(1,"+num2str(p)+")=strPorts."+port_labels{p}+".order;"); 
+        }else{
+            pord(1,p)=0;
+        }
+    }
+    if ( (find(pord==0)!=0)  or max(pord)>plen){
+        if (sum(pord)!=0){
+            backward_warning=backward_warning+"\n           Port order is not defined properly for all the defined ports. Please check the source data. Default port order will be used!";
+        }
+        orderexists=0;
+    }else{
+        orderexists=1;
+    }
+    
+    for (po=1:length(pord)){
+        if (pord(po)!=1){
+            if (find(pord==pord(po)-1)==0){
+                if (orderexists==1){
+                    backward_warning=backward_warning+"\n           Port order is not defined properly for all the defined ports. Please check the source data. Default port order will be used!";
+                    orderexists=0;            
+                } 
+            }
+        }
+    }
+    
+    if (orderexists==1){
+        ports=cell(length(unique(pord)));
+    }else{
+        ports=cell(plen);
+    }
+
+    for(p=1:plen){
+        if (orderexists==1){
+            eval("ord=strPorts."+port_labels{p}+".order;");
+        }else{
+            ord=p;
+        }
+        ports{ord}=struct;
+        eval("ports{"+num2str(ord)+"}=strPorts."+port_labels{p}+";");
+        ports{ord}.type="Optical Signal";
+        eval(port_labels{p}+"_RELAY="+num2str(ord)+";");
+    }
+    clear(strPorts);
+}
+
+if (exist("model_data")){
+    photonic_model=model_data.photonic_model;
+    spar_filename=model_data.spar_filename;
+    number_of_taps_estimation=model_data.number_of_taps_estimation;
+    reciprocity_enforcement=model_data.reciprocity_enforcement;
+    passivity_enforcement=model_data.passivity_enforcement;
+    mode_data=model_data.mode_data;
+    mode_label = cell(length(model_data.mode_data));
+    mode_no = length(model_data.mode_data);
+    mode_ID = matrix(length(mode_label));
+    for(i=1:length(mode_label)){
+        mode_label{i} = model_data.mode_data{i}.name;
+        mode_ID(i) = model_data.mode_data{i}.ID;
+    }
+    if (isfield(model_data,"fir_taps")){fir_taps = model_data.fir_taps;}
+    if (isfield(model_data,"iir_taps")){iir_taps = model_data.iir_taps;}
+    digital_filter_type = model_data.digital_filter_type;
+    clear(model_data);
+}
+
+if (exist("QA")){
+    if (isfield(QA,"parameters")){
+        if (isfield(QA.parameters,"wavelength")){
+            max_wavelength=QA.parameters.wavelength.max;
+            min_wavelength=QA.parameters.wavelength.min;
+            }
+    }
+    if (isfield(QA,"compare_time_abs_transmission")){compare_time_abs_transmission=QA.compare_time_abs_transmission;}
+    if (isfield(QA,"compare_time_bandwidth_fraction")){compare_time_bandwidth_fraction=QA.compare_time_bandwidth_fraction;}
+    if (isfield(QA,"custom_qa_filenames")){custom_qa_filenames=QA.custom_qa_filenames;}
+    if (isfield(QA,"number_wavelength_points")){number_wavelength_points=QA.number_wavelength_points;}
+    if (isfield(QA,"reference_data_available")){reference_data_available=QA.reference_data_available;}
+    if (isfield(QA,"GD_qa_ports")){GD_qa_ports=QA.GD_qa_ports;}
+    if (isfield(QA,'absolute_tolerances')){
+        tols={"S_data","S_regression","S_time","passivity","power_dB","reciprocity","wavelength_nm"};
+        for (t=1:length(tols)) {
+            eval("tolexist=isfield(QA.absolute_tolerances,'"+tols{t}+"');");
+            if (tolexist==1){
+                if(tols{t}=="wavelength_nm"){eval("wavelength_tolerance_nm=QA.absolute_tolerances."+tols{t}+";");}
+                else if(tols{t}=="power_dB"){eval("power_tolerance_dB=QA.absolute_tolerances."+tols{t}+";");}
+                else{eval(tols{t}+"_tolerance=QA.absolute_tolerances."+tols{t}+";");}
+            }
+        }
+    }
+    if (isfield(QA,'relative_tolerances')){
+        tols={"group_delay"};
+        for (t=1:length(tols)) {
+            eval("tolexist=isfield(QA.relative_tolerances,'"+tols{t}+"');");
+            if (tolexist==1){
+                eval(tols{t}+"_tolerance=QA.relative_tolerances."+tols{t}+";");
+            }
+        }
+    }
+    clear(QA);
+}
+
+# Backward compatibility 
+# Old notes
+note_count=0;
+for(i=1:10) {
+    if(exist("note_" + num2str(i))==1){
+        note_count=note_count+1;  
+    }
+}
+if (note_count!=0){
+    notes=cell(note_count);
+    for (i=1:note_count){
+        notes{i}=struct;
+        eval('notes{'+num2str(i)+'}.property = note_' + num2str(i) + '.property;');
+        eval('notes{'+num2str(i)+'}.value = note_' + num2str(i) + '.value;');
+        eval('clear(note_'+ num2str(i)+');');
+    }
+    warning_elements = warning_elements + " notes";
+}       
+if(!exist("digital_filter_type")) {
+    digital_filter_type = "FIR";
+    warning_elements = warning_elements + " digital_filter_type";     
+}
+if (warning_elements!= ""){
+    backward_warning = backward_warning+ "\n           WARNING: Following data are in an old format or do not exist:\n          "+ warning_elements+endl+"           This format may not be supported in the future. Please refer to the documentation and update the data format.\n          "+endl;
+}

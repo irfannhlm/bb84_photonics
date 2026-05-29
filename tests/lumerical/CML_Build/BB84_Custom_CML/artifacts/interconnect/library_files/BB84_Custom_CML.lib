@@ -1,0 +1,3 @@
+.LIB nominal
+.MODEL MMI_2x2_TE_c library="BB84_Custom_CML"
+.ENDL

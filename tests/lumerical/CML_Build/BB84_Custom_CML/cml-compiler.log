@@ -1,0 +1,140 @@
+
+########################################################START OF LOG SESSION##############################################################
+
+CURRENT DATE AND TIME: 29/05/2026 22:43:11
+
+CML Compiler executable path: C:\Program Files\Lumerical\v241\CML_Compiler\bin\\cml-compiler.pyc
+Executed command: cml-compiler library -t BB84_Custom_CML.json 
+29/05/2026 22:43:12 -----------------------------------------------
+29/05/2026 22:43:12 Lumerical CML Compiler - Version: 3.8.3633
+29/05/2026 22:43:12 Compiled with INTERCONNECT - Version: 9.13.3633
+29/05/2026 22:43:12 -----------------------------------------------
+29/05/2026 22:43:12 Building compact models...
+29/05/2026 22:43:18 [01/01] MMI_2x2_TE_c
+29/05/2026 22:43:18            Validating MMI_2x2_TE_c.json source data... FAILED!
+
+29/05/2026 22:43:18 C:\GithubRepositories\bb84_photonics\tests\lumerical\CML_Build\BB84_Custom_CML\source\MMI_2x2_TE_c\MMI_2x2_TE_c.json path does not exist. Please make sure the element source folder and files exist
+29/05/2026 22:43:19 Data validation has 0 warnings and 0 errors. See cml-compiler.state for details.
+29/05/2026 22:43:19 1 error(s) in building photonic models. Saved in "cml-compiler.state". If you cannot resolve the problem, please contact Lumercial with the log files for support: https://www.lumerical.com/support/
+29/05/2026 22:43:19 =======================================
+29/05/2026 22:43:19 Failed to build the following elements:
+29/05/2026 22:43:19 * MMI_2x2_TE_c
+29/05/2026 22:43:19 
+29/05/2026 22:43:19 CML Compiler executed with specification defined in BB84_Custom_CML.json
+29/05/2026 22:43:19 
+29/05/2026 22:43:19 
+29/05/2026 22:43:19 #############################################
+29/05/2026 22:43:19 Finished compiling your BB84_Custom_CML library!
+29/05/2026 22:43:19 CML Compiler outputs are located at C:\GithubRepositories\bb84_photonics\tests\lumerical\CML_Build\BB84_Custom_CML\artifacts.
+29/05/2026 22:43:19 
+29/05/2026 22:43:19 	* INTERCONNECT CML files: C:\GithubRepositories\bb84_photonics\tests\lumerical\CML_Build\BB84_Custom_CML\artifacts\interconnect
+#########################################################END OF LOG SESSION###############################################################
+
+########################################################START OF LOG SESSION##############################################################
+
+CURRENT DATE AND TIME: 29/05/2026 22:43:21
+
+CML Compiler executable path: C:\Program Files\Lumerical\v241\CML_Compiler\bin\\cml-compiler.pyc
+Executed command: cml-compiler install -t BB84_Custom_CML.json 
+29/05/2026 22:43:24 -----------------------------------------------
+29/05/2026 22:43:24 Lumerical CML Compiler - Version: 3.8.3633
+29/05/2026 22:43:24 Compiled with INTERCONNECT - Version: 9.13.3633
+29/05/2026 22:43:24 -----------------------------------------------
+29/05/2026 22:43:24 Installing library...
+29/05/2026 22:43:24 Installed library! Library (CML) information:
+29/05/2026 22:43:24 {
+29/05/2026 22:43:24   "INTERCONNECT Version": "9.13.3633",
+29/05/2026 22:43:24   "Library Name": "BB84_Custom_CML",
+29/05/2026 22:43:24   "Library Version": "1.0"
+29/05/2026 22:43:24 }
+29/05/2026 22:43:25 
+29/05/2026 22:43:25 CML Compiler executed with specification defined in BB84_Custom_CML.json
+#########################################################END OF LOG SESSION###############################################################
+
+########################################################START OF LOG SESSION##############################################################
+
+CURRENT DATE AND TIME: 29/05/2026 22:43:26
+
+CML Compiler executable path: C:\Program Files\Lumerical\v241\CML_Compiler\bin\\cml-compiler.pyc
+Executed command: cml-compiler test -t BB84_Custom_CML.json 
+29/05/2026 22:43:29 -----------------------------------------------
+29/05/2026 22:43:29 Lumerical CML Compiler - Version: 3.8.3633
+29/05/2026 22:43:29 Compiled with INTERCONNECT - Version: 9.13.3633
+29/05/2026 22:43:29 -----------------------------------------------
+29/05/2026 22:43:29 Building QA scripts...
+29/05/2026 22:43:29 ERROR: CML Compiler exited prematurely with the following error:
+29/05/2026 22:43:29 IndexError('list index out of range')
+#########################################################END OF LOG SESSION###############################################################
+
+########################################################START OF LOG SESSION##############################################################
+
+CURRENT DATE AND TIME: 29/05/2026 22:44:14
+
+CML Compiler executable path: C:\Program Files\Lumerical\v241\CML_Compiler\bin\\cml-compiler.pyc
+Executed command: cml-compiler library -t BB84_Custom_CML.json 
+29/05/2026 22:44:14 -----------------------------------------------
+29/05/2026 22:44:14 Lumerical CML Compiler - Version: 3.8.3633
+29/05/2026 22:44:14 Compiled with INTERCONNECT - Version: 9.13.3633
+29/05/2026 22:44:14 -----------------------------------------------
+29/05/2026 22:44:14 Building compact models...
+29/05/2026 22:44:17 [01/01] MMI_2x2_TE_c
+29/05/2026 22:44:17            Validating MMI_2x2_TE_c.json source data... PASSED!
+
+29/05/2026 22:44:17            Building compact model... SUCCESS!
+
+29/05/2026 22:44:18 Data validation has 0 warnings and 0 errors. See cml-compiler.state for details.
+29/05/2026 22:44:19 
+29/05/2026 22:44:19 CML Compiler executed with specification defined in BB84_Custom_CML.json
+29/05/2026 22:44:19 
+29/05/2026 22:44:19 
+29/05/2026 22:44:19 #############################################
+29/05/2026 22:44:19 Finished compiling your BB84_Custom_CML library!
+29/05/2026 22:44:19 CML Compiler outputs are located at C:\GithubRepositories\bb84_photonics\tests\lumerical\CML_Build\BB84_Custom_CML\artifacts.
+29/05/2026 22:44:19 
+29/05/2026 22:44:19 	* INTERCONNECT CML files: C:\GithubRepositories\bb84_photonics\tests\lumerical\CML_Build\BB84_Custom_CML\artifacts\interconnect
+#########################################################END OF LOG SESSION###############################################################
+
+########################################################START OF LOG SESSION##############################################################
+
+CURRENT DATE AND TIME: 29/05/2026 22:44:21
+
+CML Compiler executable path: C:\Program Files\Lumerical\v241\CML_Compiler\bin\\cml-compiler.pyc
+Executed command: cml-compiler install -t BB84_Custom_CML.json 
+29/05/2026 22:44:24 -----------------------------------------------
+29/05/2026 22:44:24 Lumerical CML Compiler - Version: 3.8.3633
+29/05/2026 22:44:24 Compiled with INTERCONNECT - Version: 9.13.3633
+29/05/2026 22:44:24 -----------------------------------------------
+29/05/2026 22:44:24 Installing library...
+29/05/2026 22:44:24 Installed library! Library (CML) information:
+29/05/2026 22:44:24 {
+29/05/2026 22:44:24   "INTERCONNECT Version": "9.13.3633",
+29/05/2026 22:44:24   "Library Name": "BB84_Custom_CML",
+29/05/2026 22:44:24   "Library Version": "1.0"
+29/05/2026 22:44:24 }
+29/05/2026 22:44:26 
+29/05/2026 22:44:26 CML Compiler executed with specification defined in BB84_Custom_CML.json
+#########################################################END OF LOG SESSION###############################################################
+
+########################################################START OF LOG SESSION##############################################################
+
+CURRENT DATE AND TIME: 29/05/2026 22:44:28
+
+CML Compiler executable path: C:\Program Files\Lumerical\v241\CML_Compiler\bin\\cml-compiler.pyc
+Executed command: cml-compiler test -t BB84_Custom_CML.json 
+29/05/2026 22:44:31 -----------------------------------------------
+29/05/2026 22:44:31 Lumerical CML Compiler - Version: 3.8.3633
+29/05/2026 22:44:31 Compiled with INTERCONNECT - Version: 9.13.3633
+29/05/2026 22:44:31 -----------------------------------------------
+29/05/2026 22:44:31 Building QA scripts...
+29/05/2026 22:44:31 [01/01] MMI_2x2_TE_c
+29/05/2026 22:44:31            Building INTERCONNECT QA tests... SUCCESS!
+
+29/05/2026 22:44:31 There are 1 elements in the list
+29/05/2026 22:44:31 1 top level elements were found
+29/05/2026 22:44:31 0 container elements were found
+29/05/2026 22:44:31 0 children were found
+29/05/2026 22:44:31 0 original subelement tests were removed
+29/05/2026 22:44:31 Total number of INTERCONNECT tests is 1
+29/05/2026 22:44:31 
+29/05/2026 22:44:31 CML Compiler executed with specification defined in BB84_Custom_CML.json
+#########################################################END OF LOG SESSION###############################################################

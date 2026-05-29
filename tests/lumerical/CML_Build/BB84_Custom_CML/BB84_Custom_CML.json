@@ -1,0 +1,13 @@
+{
+  "foundry_name": "BB84_Custom_CML",
+  "version_suffix": "1.0",
+  "process_prefix": "",
+  "veriloga": {
+    "NumOfChannel": 2
+  },
+  "element_list": [
+    {
+      "element_name": "MMI_2x2_TE_c"
+    }
+  ]
+}

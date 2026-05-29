@@ -1,0 +1,110 @@
+# Copyright (c) 2003-2020, Ansys, Inc. All rights reserved.  
+
+# Unauthorized use, distribution, or duplication is prohibited.  
+# This product is subject to U.S. laws governing export and re-export.  
+
+# For full Legal Notice, see documentation.
+
+if (exist("source_directory")){
+    if (source_directory!=filedirectory(filedirectory(which(currentscriptname)))){
+        clear;
+        source_directory = filedirectory(filedirectory(which(currentscriptname)));
+        foundry_directory = filedirectory(filedirectory(which(source_directory)));
+        cd(filedirectory(which(currentscriptname)));
+        feval("/aux_scripts/spar_fixed_init_qa.lsf");
+    }
+}else{
+        clear;
+        source_directory = filedirectory(filedirectory(which(currentscriptname)));
+        foundry_directory = filedirectory(filedirectory(which(source_directory)));
+        cd(filedirectory(which(currentscriptname)));
+        feval("/aux_scripts/spar_fixed_init_qa.lsf");      
+}
+err=error_count;
+
+
+### Reference data comparison
+
+# Check reference data for testing:
+
+if(exist("container_selection_code")){
+    foldername_ref = source_directory;
+    filename_ref = child_model+"_refdata";
+}else{
+foldername_ref = foundry_directory+"/source/"+foundry_element;
+filename_ref = foundry_element+"_refdata";
+}
+
+if(!reference_data_available){
+    msg = "Regression QA test is skipped. Saving reference data in " + foldername_ref;
+    assert(msg,false);
+    S_complex_ref = S_complex;
+    error_count = error_count+1;
+
+    current_directory = pwd;
+    cd(foldername_ref);
+    wavelength_ref = wavelength;
+    matlabsave(filename_ref, S_complex_ref,wavelength_ref);
+    cd(current_directory);
+
+    ?"******* Saved reference data";
+}else{
+    ?"Testing S parameter against reference data";
+}
+
+if(!exist('S_regression_tolerance')){
+    S_regression_tolerance = S_tolerance;
+}
+
+
+
+# Compare with reference data
+current_directory = pwd;
+cd(foldername_ref);
+try{
+    matlabload(filename_ref);
+}  catch(errMsg);
+
+cd(current_directory);
+if (errMsg !=''){
+    msg=filename_ref+".mat does not exist in "+foldername_ref;
+    assert(msg,0);
+    error_count = error_count+1;
+    
+}else{
+       
+    change = max(abs(wavelength_ref-wavelength));
+    msg = "Wavelength for QA has been changed by: " + num2str(change);
+    pass = change <= wavelength_tolerance_nm;
+    if(!pass) {
+                error_count = error_count+1;
+            }
+    assert(msg,pass);
+    if(break_at_failure & !pass) { break; }
+    
+    
+    S_dB =     20*log10(abs(S_complex+1e-100));
+    S_dB_ref = 20*log10(abs(S_complex_ref+1e-100));
+    change = max(abs(S_dB-S_dB_ref));
+    msg = "S in dB has been changed by: " + num2str(change) + " and should be less than " + num2str(power_tolerance_dB);
+    pass1 = change <= power_tolerance_dB;
+    if(!pass1) {
+                error_count = error_count+1;
+            }
+    assert(msg,pass1);
+    if(break_at_failure & !pass1) { break; }
+    
+    change = max(abs(S_complex-S_complex_ref));
+    msg = "S has been changed by: " + num2str(change) + " and should be less than " + num2str(S_regression_tolerance);
+    pass2 = change <= S_regression_tolerance;
+    if(!pass2) {
+                error_count = error_count+1;
+            }
+    assert(msg,pass2);
+    if(break_at_failure & !pass2) { break; }
+}
+    
+
+if (err==error_count){
+?filebasename(currentscriptname)+" test passed.";
+}

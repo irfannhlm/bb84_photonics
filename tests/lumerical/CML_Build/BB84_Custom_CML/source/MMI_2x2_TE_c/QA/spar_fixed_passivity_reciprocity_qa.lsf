@@ -1,0 +1,105 @@
+# Copyright (c) 2003-2020, Ansys, Inc. All rights reserved.  
+
+# Unauthorized use, distribution, or duplication is prohibited.  
+# This product is subject to U.S. laws governing export and re-export.  
+
+# For full Legal Notice, see documentation.
+
+if (exist("source_directory")){
+    if (source_directory!=filedirectory(filedirectory(which(currentscriptname)))){
+        clear;
+        source_directory = filedirectory(filedirectory(which(currentscriptname)));
+        foundry_directory = filedirectory(filedirectory(which(source_directory)));
+        cd(filedirectory(which(currentscriptname)));
+        feval("/aux_scripts/spar_fixed_init_qa.lsf");
+    }
+}else{
+        clear;
+        source_directory = filedirectory(filedirectory(which(currentscriptname)));
+        foundry_directory = filedirectory(filedirectory(which(source_directory)));
+        cd(filedirectory(which(currentscriptname)));
+        feval("/aux_scripts/spar_fixed_init_qa.lsf");     
+}
+err=error_count;
+
+
+### Reciprocity and passivity test
+# Test reciprocity:
+?"Testing reciprocity";
+diff_abs = max(abs(S_complex) - abs(permute(S_complex,[2,1,3])));
+pass_abs = diff_abs <= reciprocity_tolerance;
+msg = "Reciprocity violation considering only abs(S) is " + num2str(diff_abs) + " and should be less than " + num2str(reciprocity_tolerance);
+assert(msg,pass_abs);
+if(break_at_failure & !pass_abs) { break; }
+
+diff = max(abs(S_complex - permute(S_complex,[2,1,3])));
+pass = diff <= reciprocity_tolerance;
+msg = "Reciprocity violation including phase is " + num2str(diff) + " and should be less than " + num2str(reciprocity_tolerance) +
+        ", note that violation in abs(S) is " + num2str(diff_abs);
+
+if(!pass & !pass_abs) {
+            error_count = error_count+1;
+        }
+assert(msg,pass);
+if(break_at_failure & !pass) { break; }
+
+
+
+# Test passivity:
+?"Testing passivity";
+diff = 0;
+norm_S = matrix(number_wavelength_points);
+for(wc=1:number_wavelength_points) {
+    S = pinch(S_complex(:,:,wc));
+    norm_S(wc) = norm(S);
+    diff = max([norm_S(wc)-1,diff]);
+}
+pass = diff <= passivity_tolerance;
+msg = "Passivity violation is " + num2str(diff) + " and should be less than " + num2str(passivity_tolerance);
+if(!pass) {
+            error_count = error_count+1;
+        }
+assert(msg,pass);
+if(break_at_failure & !pass) { break; }
+
+
+### Plot results
+if(create_plots){
+    # 4.1. plot norm of S matrix:
+    plot(wavelength*1e9, norm_S,"wavelength (nm)","norm(S)", model+" norm(S)");
+
+    # 4.2. plot the results linear scale
+    Ntot = N_ports * mode_no;
+    leg = cell(Ntot*Ntot); # Ntot = mode_no * N_ports
+    leg_counter = 1;
+    plotres = matrix(number_wavelength_points,Ntot*Ntot);
+
+    for(mode_ind_out = 1:mode_no){
+        for(mode_ind_in = 1:mode_no){
+            for(port_ind_out = 1: N_ports){
+                for(port_ind_in = 1: N_ports){
+                    i = port_ind_out + (mode_ID(mode_ind_out)-1) * N_ports;
+                    j = port_ind_in + (mode_ID(mode_ind_in)-1) * N_ports;
+
+                    plotres(:, leg_counter) = abs(S_complex(i,j,:));
+
+                    leg_out = ports{port_ind_out}.name + "/" + mode_label{mode_ind_out};
+                    leg_in = ports{port_ind_in}.name + "/" + mode_label{mode_ind_in};
+                    leg{leg_counter} = leg_out+", "+leg_in;
+                    leg_counter = leg_counter + 1;
+                }
+            }
+        }
+    }
+
+    plot(wavelength*1e9,plotres,"wavelength (nm)","|S(i,j)|", model+" frequency domain");
+    legend(leg);
+
+    # plot dB scale
+    plot(wavelength*1e9, 20*log10(plotres), "wavelength (nm)", "|S(i,j)|^2 (dB)", model +" frequency domain in dB");
+    legend(leg);
+}
+
+if (err==error_count){
+?filebasename(currentscriptname)+" test passed.";
+}

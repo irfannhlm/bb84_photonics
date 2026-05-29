@@ -1,0 +1,82 @@
+######################################################
+
+# Copyright (c) 2003-2020, Ansys, Inc. All rights reserved.  
+
+# Unauthorized use, distribution, or duplication is prohibited.  
+# This product is subject to U.S. laws governing export and re-export.  
+
+# For full Legal Notice, see documentation.
+
+######################################################
+## CML information 
+foundry_element="MMI_2x2_TE_c";
+library_name="BB84_Custom_CML";
+jsonload('C:\GithubRepositories\bb84_photonics\tests\lumerical\CML_Build\BB84_Custom_CML/source\MMI_2x2_TE_c\MMI_2x2_TE_c.json');
+feval('/aux_scripts/spar_fixed_backward.lsf');
+process_prefix="";
+model = process_prefix + 'MMI_2x2_TE_c';
+
+# Copyright (c) 2003-2020, Ansys, Inc. All rights reserved.  
+
+# Unauthorized use, distribution, or duplication is prohibited.  
+# This product is subject to U.S. laws governing export and re-export.  
+
+# For full Legal Notice, see documentation.
+
+### 1. Initialise enviroment and workspace [!!!DO NOT MODIFY!!!]
+closeall;
+new;
+set("monitor data","save to memory");
+
+design_kit_name = '::design kits::' + library_name + "::";
+test_empty_ONA = false;
+
+if(exist("container_selection_code")){
+    foldername_ref = source_directory;
+    filename_ref = child_model+"_refdata";
+}else{
+    foldername_ref = foundry_directory+"/source/"+foundry_element;
+    filename_ref = foundry_element+"_refdata";
+}
+
+
+if(!exist("compare_time_abs_transmission")){
+    compare_time_abs_transmission = false;
+}
+if(!exist('S_data_tolerance')){
+    S_data_tolerance = S_tolerance*1e3;
+    ?"WARNING: S_data_tolerance was not set by the user. Using " + num2str(S_data_tolerance) + " by default.";
+}
+if(!exist("group_delay_tolerance")){
+    group_delay_tolerance = 0.1;
+    ?"WARNING: group_delay_tolerance was not set by the user. Using " + num2str(group_delay_tolerance) + " by default.";
+}
+
+if(exist("mode_data")){
+    mode_no = length(mode_data);
+    mode_ID = matrix(1,mode_no);
+    mode_label = cell(mode_no);
+
+    for(i=1:mode_no){
+        mode_ID(i) = mode_data{i}.ID;
+        mode_label{i} = mode_data{i}.name;
+    }
+}
+
+
+### 2. QA options and settings
+create_plots = true;
+break_at_failure = false;
+error_count = 0;
+
+# Build circuit
+feval("/aux_scripts/spar_setup_circuit");
+
+# 1.2. Run the simulation
+run;
+
+# 1.3. Get result
+feval("/aux_scripts/spar_extract_result");  # Return results as S_matrix_result and wavelength_result
+S_complex = S_matrix_result;
+wavelength = wavelength_result;
+clear(S_matrix_result, wavelength_result);

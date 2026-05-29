@@ -1,0 +1,168 @@
+<head>
+<style>
+table, th, tr, td{
+border: 1px solid black;
+border-collapse: collapse;
+}
+tr, td{
+padding: .5%;
+}
+</style>
+}
+<body style="font-family:Tahoma;">
+<title>MMI_2x2_TE_c</title>
+<H1>MMI_2x2_TE_c (MMI)</H1>
+<div class="overview-image"><img src="symbol_mmi_2x2_te_c.png" border="1"></div>
+<P>Optimized 50/50 2x2 MMI - C band TE</P>
+<H2>Keywords</H2>
+<P></P>
+<H2>Ports</H2>
+<table class="int-ports">
+<tr>
+<th width="40%">Name</th>
+<th width="60%">Type</th>
+</tr>
+<tr>
+<td>opt_1</td>
+<td>Optical Signal</td>
+</tr>
+<tr>
+<td>opt_2</td>
+<td>Optical Signal</td>
+</tr>
+<tr>
+<td>opt_3</td>
+<td>Optical Signal</td>
+</tr>
+<tr>
+<td>opt_4</td>
+<td>Optical Signal</td>
+</tr>
+</table>
+<H2>Properties</H2>
+<H3>General Properties</H3>
+<table class="int-properties">
+<tr>
+<th width="40%">Name</th>
+<th width="20%">Default value</th>
+<th width="20%">Default unit</th>
+<th width="20%">Range</th>
+</tr>
+<tr>
+<td><p><b>name</b></p>
+<p>Defines the name of the element.</p></td>
+<td>MMI_2x2_TE_c</td>
+<td> - </td>
+<td> - </td>
+</tr>
+<tr>
+<td><p><b>enabled</b></p>
+<p>Defines whether or not the element is enabled.</p></td>
+<td>true</td>
+<td> - </td>
+<td>[true, false]</td>
+</tr>
+<tr>
+<td><p><b>description</b></p>
+<p>A brief description of the elements functionality.</p></td>
+<td>Optimized 50/50 2x2 MMI - C band TE</td>
+<td> - </td>
+<td> - </td>
+</tr>
+<tr>
+<td><p><b>prefix</b></p>
+<p>Defines the element name prefix.</p></td>
+<td>MMI</td>
+<td> - </td>
+<td> - </td>
+</tr>
+<tr>
+<td><p><b>model</b></p>
+<p>Defines the element model name.</p></td>
+<td>MMI_2x2_TE_c</td>
+<td> - </td>
+<td> - </td>
+</tr>
+<tr>
+<td><p><b>library</b></p>
+<p>Defines the element location or source in the library (custom or design kit).</p></td>
+<td>::Custom::BB84_Custom_CML</td>
+<td> - </td>
+<td> - </td>
+</tr>
+</table>
+<H3>Design Kit Properties</H3>
+<table class="int-properties">
+<tr>
+<th width="40%">Name</th>
+<th width="20%">Default value</th>
+<th width="20%">Default unit</th>
+<th width="20%">Range</th>
+</tr>
+<tr>
+<td><p><b>version</b></p>
+<p></p></td>
+<td>1.0</td>
+<td> - </td>
+<td> - </td>
+</tr>
+</table>
+<H3>CML Properties</H3>
+<table class="int-properties">
+<tr>
+<th width="40%">Name</th>
+<th width="20%">Default value</th>
+<th width="20%">Default unit</th>
+<th width="20%">Range</th>
+</tr>
+<tr>
+<td><p><b>delay compensation</b></p>
+<p></p></td>
+<td>0</td>
+<td> - </td>
+<td>[0, 100]</td>
+</tr>
+</table>
+<H3>CML/Notes Properties</H3>
+<table class="int-properties">
+<tr>
+<th width="40%">Name</th>
+<th width="20%">Default value</th>
+<th width="20%">Default unit</th>
+<th width="20%">Range</th>
+</tr>
+<tr>
+<td><p><b>wavelength_range</b></p>
+<p></p></td>
+<td>C-band (1530 - 1565 nm)</td>
+<td> - </td>
+<td> - </td>
+</tr>
+<tr>
+<td><p><b>polarization</b></p>
+<p></p></td>
+<td>TE</td>
+<td> - </td>
+<td> - </td>
+</tr>
+</table>
+<H2>Results</H2>
+<table class="int-results">
+<tr>
+<th width="40%">Name</th>
+<th width="60%">Description</th>
+</tr>
+<tr>
+<td>diagnostic/response #/transmission</td>
+<td>The complex transmission vs. frequency corresponding to the ideal and designed filter.</td>
+</tr>
+<tr>
+<td>diagnostic/response #/gain</td>
+<td>The gain vs. frequency corresponding to the ideal and designed filter.</td>
+</tr>
+<tr>
+<td>diagnostic/response #/error</td>
+<td>Mean square error comparing the frequency response of the designed filter implementation with the ideal frequency response.</td>
+</tr>
+</table>
+</body>
