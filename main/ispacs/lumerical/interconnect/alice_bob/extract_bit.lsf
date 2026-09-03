@@ -1,0 +1,117 @@
+# --- Skrip Lumerical Auto-Sync Pro: Input Alice & Bob + Output Bob ---
+
+# 1. Get Data from Oscilloscopes
+sig_basis_alice = getresult("OSC_Basis_Alice", "signal");
+sig_bit_alice   = getresult("OSC_Bit_Alice", "signal");
+sig_basis_bob   = getresult("OSC_Basis_Bob", "signal");
+
+sig_out_0 = getresult("OSC_Output_Bob_0", "sum/signal"); 
+sig_out_1 = getresult("OSC_Output_Bob_1", "sum/signal");
+
+# 2. Ekstrak Waktu Masing-Masing
+t_in  = sig_basis_alice.time;
+t_out = sig_out_0.time;       
+
+amp_basis_alice = sig_basis_alice.getattribute("amplitude (a.u.)");
+amp_bit_alice   = sig_bit_alice.getattribute("amplitude (a.u.)");
+amp_basis_bob   = sig_basis_bob.getattribute("amplitude (a.u.)");
+
+attr_optik = "power (W) at 193.414e+012 Hz";
+amp_out_0 = sig_out_0.getattribute(attr_optik);
+amp_out_1 = sig_out_1.getattribute(attr_optik);
+
+# ==========================================
+# FITUR KALIBRASI (Ubah jika masih geser)
+# ==========================================
+# Isi dengan 1, 2, -1, dst jika baris elektrik dan optik masih kurang sejajar
+manual_bit_shift = 0; 
+# ==========================================
+
+# 3. Deteksi Delay Optik Berdasarkan Titik 50% (Rising Edge)
+total_power = amp_out_0 + amp_out_1;
+max_tot_power = max(total_power);
+
+t_first_pulse_center = 0;
+
+# Cari titik di mana grafik mulai naik dan tembus 50% daya maksimal
+idx_edge = find(total_power > 0.5 * max_tot_power); 
+
+if (length(idx_edge) > 0) {
+    t_edge = t_out(idx_edge(1));
+    
+    # Setup Bit Rate
+    bit_rate = 25e6; 
+    bit_period = 1 / bit_rate;
+    
+    # Pusat dari bit optik pertama adalah (t_edge + setengah periode)
+    t_first_pulse_center = t_edge + 0.5 * bit_period;
+    print("Deteksi awal cahaya (50%): " + num2str(t_edge) + " s");
+} else {
+    print("Warning: Tidak ada sinyal cahaya yang stabil!");
+}
+
+num_bits = floor(max(t_in) / bit_period);
+
+# 4. CSV File Generation
+filename = "Transkrip_BB84_25Mbps_3.csv";
+if (fileexists(filename)) { rm(filename); } 
+write(filename, "Bit_Ke, Bit_Alice, Basis_Alice, Basis_Bob, Bit0_Bob, Bit1_Bob, Bit_Bob");
+
+# 5. Sampling per Bit
+for (i=1:num_bits) {
+    # --- A. Sampling Input Elektrik (Tepat di tengah periode) ---
+    t_sample_in = (i - 0.5) * bit_period;
+    
+    idx_in = find(abs(t_in - t_sample_in) == min(abs(t_in - t_sample_in)));
+    idx_in = idx_in(1); 
+
+    val_basis_alice = 0; if (amp_basis_alice(idx_in) > 0.6) { val_basis_alice = 1; }
+    val_bit_alice   = 0; if (amp_bit_alice(idx_in) > 0.6)   { val_bit_alice = 1; }
+    val_basis_bob   = 0; if (amp_basis_bob(idx_in) > 0.6)   { val_basis_bob = 1; }
+
+    # --- B. Sampling Output Optik (Berdasarkan Edge 50% + Manual Shift) ---
+    idx_optik = i + manual_bit_shift;
+    
+    power_0 = 0; power_1 = 0; bit_bob = "";
+
+    if (idx_optik >= 1) {
+        # Mulai berhitung dari titik tengah bit pertama
+        t_sample_out = t_first_pulse_center + (idx_optik - 1) * bit_period;
+        
+        if (t_sample_out <= max(t_out)) {
+            idx_out = find(abs(t_out - t_sample_out) == min(abs(t_out - t_sample_out)));
+            idx_out = idx_out(1);
+            
+            power_0 = amp_out_0(idx_out);
+            power_1 = amp_out_1(idx_out);
+
+            # Logika BB84 (Extinction Ratio)
+            if ((power_0 + power_1) < 0.1 * max_tot_power) {
+                bit_bob = "Error/No Signal";
+            } else if (power_0 > 3 * power_1) {
+                bit_bob = "0";
+            } else if (power_1 > 3 * power_0) {
+                bit_bob = "1";
+            } else {
+                bit_bob = "x";
+            }
+        } else {
+            bit_bob = "Habis";
+        }
+    } else {
+        bit_bob = "Belum Mulai";
+    }
+
+    # 6. Write to CSV
+    str_line = num2str(i) + ", " + 
+               num2str(val_bit_alice) + ", " + 
+               num2str(val_basis_alice) + ", " + 
+               num2str(val_basis_bob) + ", " + 
+               num2str(power_0) + ", " + 
+               num2str(power_1) + ", " + 
+               bit_bob;
+               
+    write(filename, str_line);
+}
+
+print("File Transkrip_BB84_Sync.csv selesai dibuat!");

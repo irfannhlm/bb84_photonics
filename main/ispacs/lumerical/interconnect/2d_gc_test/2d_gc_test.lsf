@@ -1,0 +1,115 @@
+# =========================================================================
+# PSGC COMPLETE BIDIRECTIONAL SWEEP MASTER SCRIPT (REUSE METHOD)
+# =========================================================================
+
+switchtodesign;
+deleteall;
+
+# 1. Create and configure the PSGC element
+addelement("Optical N Port S-Parameter");
+set("name", "PSGC");
+set("load from file", true);
+set("s parameters filename", "psgc_lumerical.dat"); 
+
+# --- WAVELENGTH TO FREQUENCY CONVERSION SYSTEM ---
+start_freq = c / 1570e-9; # 1570 nm in Hz
+stop_freq  = c / 1530e-9; # 1530 nm in Hz
+
+# 2. Add and configure a SINGLE Optical Network Analyzer
+addelement("Optical Network Analyzer");
+set("name", "ONA");
+set("input parameter", "start and stop");
+set("start frequency", start_freq);
+set("stop frequency", stop_freq);
+set("number of points", 1000);
+set("plot kind", "wavelength");
+
+# ==========================================
+# PHASE 1: FORWARD CHARACTERIZATION (Fiber -> Chip)
+# ==========================================
+select("ONA");
+set("number of input ports", 2);
+
+# Establish Forward Connections
+connect("ONA", "output", "PSGC", "Fiber");
+connect("PSGC", "WG_X", "ONA", "input 1");
+connect("PSGC", "WG_Y", "ONA", "input 2");
+
+# --- Test 1: Fiber TE (Orthogonal ID 1) ---
+setnamed("ONA", "orthogonal identifier", 1);
+run;
+
+ds_F_TE_1 = getresult("ONA", "input 1/mode 1/gain");
+ds_F_TE_2 = getresult("ONA", "input 2/mode 1/gain");
+wavelengths_nm = ds_F_TE_1.wavelength * 1e9; # Save X-axis
+
+F_TE_to_WG_X = ds_F_TE_1["TE gain (dB)"];
+F_TE_to_WG_Y = ds_F_TE_2["TE gain (dB)"];
+
+# --- Test 2: Fiber TM (Orthogonal ID 2) ---
+switchtodesign;
+setnamed("ONA", "orthogonal identifier", 2);
+run;
+
+ds_F_TM_1 = getresult("ONA", "input 1/mode 1/gain");
+ds_F_TM_2 = getresult("ONA", "input 2/mode 1/gain");
+
+F_TM_to_WG_X = ds_F_TM_1["TE gain (dB)"];
+F_TM_to_WG_Y = ds_F_TM_2["TE gain (dB)"];
+
+# ==========================================
+# PHASE 2: REVERSE CHARACTERIZATION (Chip -> Fiber)
+# ==========================================
+switchtodesign;
+
+# Tear down forward connections to avoid collisions
+disconnect("ONA", "output", "PSGC", "Fiber");
+disconnect("PSGC", "WG_X", "ONA", "input 1");
+disconnect("PSGC", "WG_Y", "ONA", "input 2");
+
+# Reconfigure ONA for a single input (monitoring the Fiber port)
+select("ONA");
+set("number of input ports", 1);
+
+# --- Test 3: Injecting into WG_X ---
+connect("ONA", "output", "PSGC", "WG_X");
+connect("PSGC", "Fiber", "ONA", "input 1");
+run;
+
+ds_X_m1 = getresult("ONA", "input 1/mode 1/gain"); # Fiber TE output
+ds_X_m2 = getresult("ONA", "input 1/mode 2/gain"); # Fiber TM output
+
+WG_X_to_F_TE = ds_X_m1["TE gain (dB)"];
+WG_X_to_F_TM = ds_X_m2["TE gain (dB)"];
+
+# --- Test 4: Injecting into WG_Y ---
+switchtodesign;
+disconnect("ONA", "output", "PSGC", "WG_X");
+
+connect("ONA", "output", "PSGC", "WG_Y");
+run;
+
+ds_Y_m1 = getresult("ONA", "input 1/mode 1/gain"); # Fiber TE output
+ds_Y_m2 = getresult("ONA", "input 1/mode 2/gain"); # Fiber TM output
+
+WG_Y_to_F_TE = ds_Y_m1["TE gain (dB)"];
+WG_Y_to_F_TM = ds_Y_m2["TE gain (dB)"];
+
+# ==========================================
+# VISUALIZATION DASHBOARD
+# ==========================================
+# Plot 1: Forward TE
+plot(wavelengths_nm, F_TE_to_WG_X, F_TE_to_WG_Y, "Wavelength (nm)", "Gain (dB)", "1. Input: Fiber (TE/X-Pol)");
+legend("Out: WG_X (Signal)", "Out: WG_Y (Crosstalk)");
+
+# Plot 2: Forward TM
+plot(wavelengths_nm, F_TM_to_WG_Y, F_TM_to_WG_X, "Wavelength (nm)", "Gain (dB)", "2. Input: Fiber (TM/Y-Pol)");
+legend("Out: WG_Y (Signal)", "Out: WG_X (Crosstalk)");
+
+# Plot 3: Reverse WG_X
+plot(wavelengths_nm, WG_X_to_F_TE, WG_X_to_F_TM, "Wavelength (nm)", "Gain (dB)", "3. Input: WG_X");
+legend("Out: Fiber TE (Signal)", "Out: Fiber TM (Crosstalk)");
+
+# Plot 4: Reverse WG_Y
+plot(wavelengths_nm, WG_Y_to_F_TM, WG_Y_to_F_TE, "Wavelength (nm)", "Gain (dB)", "4. Input: WG_Y");
+legend("Out: Fiber TM (Signal)", "Out: Fiber TE (Crosstalk)");

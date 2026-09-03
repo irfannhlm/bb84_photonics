@@ -1,0 +1,79 @@
+# ========================================================
+# Alice BB84 Transmitter: Full C-Band Plot & 1550nm Extraction
+# ========================================================
+sweep_name = "sweep_basis";
+
+# Extract the gain and angle from the ONA
+G_H_data = getsweepresult(sweep_name, "gain_X");
+G_V_data = getsweepresult(sweep_name, "gain_Y");
+A_H_data = getsweepresult(sweep_name, "angle_X");
+A_V_data = getsweepresult(sweep_name, "angle_Y");
+
+# Extract the gain and angle array
+P_H_dB_band = G_H_data.getattribute("X gain (dB)"); 
+P_V_dB_band = G_V_data.getattribute("Y gain (dB)"); 
+A_H_rad_band = A_H_data.getattribute("X angle (rad)"); 
+A_V_rad_band = A_V_data.getattribute("Y angle (rad)"); 
+
+# Locate the exact index for 1550 nm
+target_wl = 1550e-9;
+lambda_m = G_H_data.wavelength;
+wl_diff = abs(lambda_m - target_wl);
+wl_idx = find(wl_diff, min(wl_diff));
+wl_idx = wl_idx(1); # Extract the single scalar index
+
+# Phase difference in radians, mapped to degrees
+Phase_Diff_band = A_H_rad_band - A_V_rad_band;
+Phase_Diff_band = angle(exp(1i * Phase_Diff_band));
+Phase_Diff_deg_band = Phase_Diff_band * (180/pi);
+
+# ========================================================
+# Calculate and Print 1550 nm Specific Metrics
+# ===============================================s=========
+? "=== Alice BB84 Transmitter: Metrics @ 1550 nm ===";
+? "Basis | Bit | IL (dB)  | ER (dB)  | Phase Diff (deg) | Azimuth (deg)";
+? "----------------------------------------------------";
+
+# Nested loop through index_1 (Basis) and index_2 (Bit)
+for (idx_2 = 1:2) {
+    for (idx_1 = 1:2) {
+        
+        # Isolate the 1550 nm data point using explicit 3D indexing
+        g1_dB = P_H_dB_band(wl_idx, idx_1, idx_2);
+        g2_dB = P_V_dB_band(wl_idx, idx_1, idx_2);
+        
+        # --- Insertion Loss (dB) ---
+        t1_lin = 10^(g1_dB / 10);
+        t2_lin = 10^(g2_dB / 10);
+        total_t_lin = t1_lin + t2_lin;
+        IL = -10 * log10(total_t_lin + 1e-12);
+        
+        # --- Extinction Ratio (dB) ---
+        ER = abs(g1_dB - g2_dB);
+        
+        # --- Phase Difference (deg) ---
+        ph_diff_deg = Phase_Diff_deg_band(wl_idx, idx_1, idx_2);
+
+        # --- CAzimuth Angle (deg) ---
+        # Convert dB gain back to linear amplitude
+        Ex = sqrt(t1_lin);
+        Ey = sqrt(t2_lin);
+        # Convert phase difference to radians for trig
+        delta = ph_diff_deg * pi / 180;
+        
+        # Using atan2 to safely calculate 2*Psi
+        # atan2(y, x) -> y = 2*Ex*Ey*cos(delta), x = Ex^2 - Ey^2
+        azimuth_rad = 0.5 * atan2(2 * Ex * Ey * cos(delta), Ex^2 - Ey^2);
+        azimuth_deg = azimuth_rad * 180 / pi;
+        
+        # Formatted Row Printing
+        basis_val = num2str(idx_2 - 1); 
+        bit_val = num2str(idx_1 - 1);
+
+        # Formatted Row Printing (Subtract 1 to match "Basis 0/1" and "Bit 0/1" logic)
+        basis_val = num2str(idx_2 - 1); 
+        bit_val = num2str(idx_1 - 1);
+        azimuth_val = num2str(azimuth_deg);
+        ? "  " + basis_val + "   |  " + bit_val + "  | " + num2str(IL) + " | " + num2str(ER) + " | " + num2str(ph_diff_deg) + " | " + azimuth_val;
+    }
+}
