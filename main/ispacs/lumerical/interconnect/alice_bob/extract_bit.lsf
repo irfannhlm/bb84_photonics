@@ -1,4 +1,4 @@
-# --- Skrip Lumerical Auto-Sync Pro (Advanced Error Detection & Summary) ---
+# --- BB84 Lumerical Transcript (Advanced Error Detection & Summary) ---
 
 # Get Data from Oscilloscopes
 sig_basis_alice = getresult("OSC_Basis_Alice", "signal");
@@ -17,6 +17,12 @@ amp_basis_bob   = sig_basis_bob.getattribute("amplitude (a.u.)");
 amp_out_0 = sig_out_0.getattribute("amplitude (a.u.)");
 amp_out_1 = sig_out_1.getattribute("amplitude (a.u.)");
 
+# CSV File Generation
+filename = "Transkrip_BB84_" + num2str(bit_rate/1e6) + "Mbps_2.csv";
+if (fileexists(filename)) { rm(filename); } 
+
+write(filename, "Bit_Ke, Bit_Alice, Basis_Alice, Basis_Bob, Energy0_Bob(J), Energy1_Bob(J), Bit_Bob, ER_dB, Basis_Match, Status_Error");
+
 # ==========================================
 # SETUP GLOBAL & KALIBRASI INTEGRASI
 # ==========================================
@@ -27,6 +33,31 @@ bit_period = 1 / bit_rate;
 # Lebar window integrasi SPAD
 gate_width = 0.05 * bit_period; 
 # ==========================================
+
+# Variabel Pelacak Worst Case Matched
+worst_matched_er = 1e9;
+worst_matched_bit = -1;
+worst_matched_str = "";
+worst_matched_e0 = 0;
+worst_matched_e1 = 0;
+
+# Variabel Pelacak Worst Case Mismatched
+worst_mismatched_dev = -1;
+worst_mismatched_er = 0;
+worst_mismatched_bit = -1;
+worst_mismatched_str = "";
+worst_mismatched_e0 = 0;
+worst_mismatched_e1 = 0;
+
+# Counter Rekapitulasi State
+count_matched = 0;
+count_matched_bit0 = 0;
+count_matched_bit1 = 0;
+count_mismatched = 0;
+
+# Counter Error Detection
+count_bit_errors = 0;        # Error pembacaan bit pada matched basis (QBER)
+count_imbalance_errors = 0;  # Error ketidakseimbangan daya berlebih pada mismatched basis
 
 # Deteksi Puncak Pulsa Pertama Sebagai Acuan Global
 total_power = amp_out_0 + amp_out_1;
@@ -58,37 +89,6 @@ if (length(idx_thresh) > 0) {
 }
 
 num_bits = floor(max(t_in) / bit_period);
-
-# Variabel Pelacak Worst Case Matched
-worst_matched_er = 1e9;
-worst_matched_bit = -1;
-worst_matched_str = "";
-worst_matched_e0 = 0;
-worst_matched_e1 = 0;
-
-# Variabel Pelacak Worst Case Mismatched
-worst_mismatched_dev = -1;
-worst_mismatched_er = 0;
-worst_mismatched_bit = -1;
-worst_mismatched_str = "";
-worst_mismatched_e0 = 0;
-worst_mismatched_e1 = 0;
-
-# Counter Rekapitulasi State
-count_matched = 0;
-count_matched_bit0 = 0;
-count_matched_bit1 = 0;
-count_mismatched = 0;
-
-# Counter Error Detection
-count_bit_errors = 0;        # Error pembacaan bit pada matched basis (QBER)
-count_imbalance_errors = 0;  # Error ketidakseimbangan daya berlebih pada mismatched basis
-
-# CSV File Generation
-filename = "Transkrip_BB84_Advanced_" + num2str(bit_rate/1e6) + "Mbps.csv";
-if (fileexists(filename)) { rm(filename); } 
-
-write(filename, "Bit_Ke, Bit_Alice, Basis_Alice, Basis_Bob, Energy0_Bob(J), Energy1_Bob(J), Bit_Bob, ER_dB, Basis_Match, Status_Error\n");
 
 # Sampling per Bit Menggunakan Integrasi SPAD Gate Window
 for (i=1:num_bits) {
@@ -223,7 +223,7 @@ for (i=1:num_bits) {
                bit_bob + ", " + 
                num2str(er_bit) + ", " + 
                match_status + ", " + 
-               error_status + "\n";
+               error_status;
 
     write(filename, str_line);
 }
