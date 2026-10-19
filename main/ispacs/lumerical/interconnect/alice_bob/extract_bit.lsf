@@ -1,272 +1,171 @@
-# --- BB84 Lumerical Transcript (Advanced Error Detection & Summary) ---
+# ========================================================
+# BB84 Alice -> Bob: bit transcript from the time-domain run
+# ========================================================
+# Run after the alice_bob simulation. For every bit slot it reads Alice's basis/bit and
+# Bob's basis from the drive oscilloscopes, integrates Bob's two outputs over ONE gate
+# centred on the main pulse, decides Bob's bit, sifts, and writes a CSV + summary.
+#
+# Gating: both detectors share the same gate, centred on the total-power peak of the slot.
+# Gating each detector on its own peak makes the dark detector integrate the ~5.4 ns
+# echo (S-parameter filter artifact) instead of the empty slot -> ER drops to 10-20 dB.
+#
+# Channels: the optical oscilloscopes are noise-free, so they give the device ER.
+# The APD outputs (OSC_1/OSC_2) include receiver noise: fine for bit decisions, but the
+# dark-detector energy sits at the noise floor (often <= 0), so their ER is meaningless.
+#
+# Detector 0 = Bob output 0 (bit 0), detector 1 = Bob output 1 (bit 1).
+# Python cross-check / figure: plot_timing.py (reads alice_bob.ich).
 
-# Get Data from Oscilloscopes
+# ---------------- settings ----------------
+use_optical      = 1;        # 1: OSC_Output_Bob_0/1 (optical), 0: OSC_2/OSC_1 (APD, noisy)
+gate_width       = 1e-9;     # s, full gate width (SPAD-like)
+v_logic          = 0.6;      # V, threshold on the 0 / 1.2 V drive signals
+min_contrast_dB  = 10;       # matched slots below this are flagged LOW_CONTRAST
+max_imbalance_dB = 3;        # mismatched slots above this are flagged IMBALANCED
+manual_bit_shift = 0;        # extra slot offset between drives and Bob outputs
+
+bit_rate   = getnamed("::Root Element", "bitrate");
+bit_period = 1 / bit_rate;
+filename   = "BB84_transcript_" + num2str(bit_rate / 1e6) + "Mbps.csv";
+
+# ---------------- read signals ----------------
 sig_basis_alice = getresult("OSC_Basis_Alice", "signal");
 sig_bit_alice   = getresult("OSC_Bit_Alice", "signal");
 sig_basis_bob   = getresult("OSC_Basis_Bob", "signal");
+t_in            = sig_basis_alice.time;
+basis_alice_v   = sig_basis_alice.getattribute("amplitude (a.u.)");
+bit_alice_v     = sig_bit_alice.getattribute("amplitude (a.u.)");
+basis_bob_v     = sig_basis_bob.getattribute("amplitude (a.u.)");
 
-sig_out_0 = getresult("OSC_2", "signal"); 
-sig_out_1 = getresult("OSC_1", "signal");
-
-t_in  = sig_basis_alice.time;
-t_out = sig_out_0.time;       
-
-amp_basis_alice = sig_basis_alice.getattribute("amplitude (a.u.)");
-amp_bit_alice   = sig_bit_alice.getattribute("amplitude (a.u.)");
-amp_basis_bob   = sig_basis_bob.getattribute("amplitude (a.u.)");
-amp_out_0 = sig_out_0.getattribute("amplitude (a.u.)");
-amp_out_1 = sig_out_1.getattribute("amplitude (a.u.)");
-
-# CSV File Generation
-filename = "Transkrip_BB84_" + num2str(bit_rate/1e6) + "Mbps_2.csv";
-if (fileexists(filename)) { rm(filename); } 
-
-write(filename, "Bit_Ke, Bit_Alice, Basis_Alice, Basis_Bob, Energy0_Bob(J), Energy1_Bob(J), Bit_Bob, ER_dB, Basis_Match, Status_Error");
-
-# ==========================================
-# SETUP GLOBAL & KALIBRASI INTEGRASI
-# ==========================================
-manual_bit_shift = 0; 
-bit_rate   = getnamed("::Root Element", "bitrate"); 
-bit_period = 1 / bit_rate; 
-
-# Lebar window integrasi SPAD
-gate_width = 0.05 * bit_period; 
-# ==========================================
-
-# Variabel Pelacak Worst Case Matched
-worst_matched_er = 1e9;
-worst_matched_bit = -1;
-worst_matched_str = "";
-worst_matched_e0 = 0;
-worst_matched_e1 = 0;
-
-# Variabel Pelacak Worst Case Mismatched
-worst_mismatched_dev = -1;
-worst_mismatched_er = 0;
-worst_mismatched_bit = -1;
-worst_mismatched_str = "";
-worst_mismatched_e0 = 0;
-worst_mismatched_e1 = 0;
-
-# Counter Rekapitulasi State
-count_matched = 0;
-count_matched_bit0 = 0;
-count_matched_bit1 = 0;
-count_mismatched = 0;
-
-# Counter Error Detection
-count_bit_errors = 0;        # Error pembacaan bit pada matched basis (QBER)
-count_imbalance_errors = 0;  # Error ketidakseimbangan daya berlebih pada mismatched basis
-
-# Deteksi Puncak Pulsa Pertama Sebagai Acuan Global
-total_power = amp_out_0 + amp_out_1;
-max_tot_power = max(total_power);
-
-t_first_pulse_center = 0;
-
-idx_thresh = find(total_power > 0.3 * max_tot_power); 
-
-if (length(idx_thresh) > 0) {
-    idx_start = idx_thresh(1);
-    
-    dt = t_out(2) - t_out(1);
-    samples_per_bit = round(bit_period / dt);
-    
-    idx_end = idx_start + samples_per_bit;
-    if (idx_end > length(t_out)) { idx_end = length(t_out); }
-    
-    sub_power = total_power(idx_start:idx_end);
-    max_sub_power = max(sub_power);
-    idx_local_peak = find(sub_power == max_sub_power);
-    
-    idx_first_peak = idx_start + idx_local_peak(1) - 1;
-    t_first_pulse_center = t_out(idx_first_peak);
-    
-    print("Puncak acuan pulsa pertama terdeteksi pada t = " + num2str(t_first_pulse_center) + " s");
+if (use_optical) {
+    sig_0 = getresult("OSC_Output_Bob_0", "sum/signal");
+    sig_1 = getresult("OSC_Output_Bob_1", "sum/signal");
+    channel = "optical";
 } else {
-    print("Warning: Tidak ada pulsa cahaya yang terdeteksi di atas threshold!");
+    sig_0 = getresult("OSC_2", "signal");
+    sig_1 = getresult("OSC_1", "signal");
+    channel = "APD";
 }
+# first (only) attribute of the dataset, whatever the oscilloscope calls it
+attr_0 = splitstring(getattribute(sig_0), "\n");
+attr_1 = splitstring(getattribute(sig_1), "\n");
+t_out = sig_0.time;
+p_0   = sig_0.getattribute(attr_0{1});
+p_1   = sig_1.getattribute(attr_1{1});
+p_tot = p_0 + p_1;
+dt    = t_out(2) - t_out(1);
 
+# ---------------- timing reference: first pulse at Bob ----------------
+idx_thresh = find(p_tot > 0.3 * max(p_tot));
+if (length(idx_thresh) == 0) {
+    ?"No pulse above threshold at Bob's outputs - check the simulation.";
+    idx_thresh = 1;
+}
+idx_end = min([idx_thresh(1) + round(bit_period / dt), length(t_out)]);
+sub = p_tot(idx_thresh(1):idx_end);
+idx_peak = find(sub == max(sub));
+t_first = t_out(idx_thresh(1) + idx_peak(1) - 1);
+?"First pulse at Bob: t = " + num2str(t_first * 1e9) + " ns  (channel: " + channel + ")";
+
+# ---------------- counters ----------------
 num_bits = floor(max(t_in) / bit_period);
+n_slots = 0;  n_matched = 0;  n_bit_err = 0;  n_low = 0;  n_imb = 0;
+worst_imbalance = 0;  worst_imbalance_slot = 0;
+# per Alice state, index = 2*basis + bit + 1  ->  H, V, -45, +45
+state_name = cell(4);
+state_name{1} = "H   (basis 0, bit 0)";
+state_name{2} = "V   (basis 0, bit 1)";
+state_name{3} = "-45 (basis 1, bit 0)";
+state_name{4} = "+45 (basis 1, bit 1)";
+state_count = [0, 0, 0, 0];
+state_min   = [1e9, 1e9, 1e9, 1e9];
+state_sum   = [0, 0, 0, 0];
+state_slot  = [0, 0, 0, 0];
 
-# Sampling per Bit Menggunakan Integrasi SPAD Gate Window
-for (i=1:num_bits) {
-    # --- A. Sampling Input Elektrik ---
-    t_sample_in = (i - 0.5) * bit_period;
+if (fileexists(filename)) { rm(filename); }
+write(filename, "slot,alice_basis,alice_bit,bob_basis,energy0_J,energy1_J,bob_bit,contrast_dB,basis_match,status");
 
-    idx_in = find(abs(t_in - t_sample_in) == min(abs(t_in - t_sample_in)));
-    idx_in = idx_in(1); 
+# ---------------- per-slot extraction ----------------
+for (i = 1:num_bits) {
+    # drives, sampled mid-slot
+    t_s = (i - 0.5) * bit_period;
+    k = find(abs(t_in - t_s) == min(abs(t_in - t_s)));
+    k = k(1);
+    basis_a = basis_alice_v(k) > v_logic;
+    bit_a   = bit_alice_v(k) > v_logic;
+    basis_b = basis_bob_v(k) > v_logic;
 
-    val_basis_alice = 0; if (amp_basis_alice(idx_in) > 0.6) { val_basis_alice = 1; }
-    val_bit_alice   = 0; if (amp_bit_alice(idx_in) > 0.6)   { val_bit_alice = 1; }
-    val_basis_bob   = 0; if (amp_basis_bob(idx_in) > 0.6)   { val_basis_bob = 1; }
+    # expected pulse centre, refined to the total-power peak within +-T/8 (echo is ~T/4 later)
+    t_c = t_first + (i - 1 + manual_bit_shift) * bit_period;
+    if (t_c - bit_period / 8 >= 0 and t_c + bit_period / 8 <= max(t_out)) {
+        idx_win = find(t_out >= t_c - bit_period / 8 and t_out <= t_c + bit_period / 8);
+        sub = p_tot(idx_win);
+        idx_peak = find(sub == max(sub));
+        t_c = t_out(idx_win(1) + idx_peak(1) - 1);
 
-    # --- B. Integrated Energy Sampling Output Optik ---
-    idx_optik = i + manual_bit_shift;
+        # one gate for both detectors
+        idx_gate = find(t_out >= t_c - gate_width / 2 and t_out <= t_c + gate_width / 2);
+        e_0 = integrate(p_0(idx_gate), 1, t_out(idx_gate));
+        e_1 = integrate(p_1(idx_gate), 1, t_out(idx_gate));
+        n_slots = n_slots + 1;
 
-    energy_0 = 0; energy_1 = 0; bit_bob = ""; er_bit = 0; 
-    match_status = "N/A"; error_status = "OK";
+        bit_b = e_1 > e_0;
+        e_lo = min([abs(e_0), abs(e_1)]);
+        if (e_lo > 0) { contrast = 10 * log10(max([e_0, e_1]) / e_lo); } else { contrast = 100; }
 
-    if (idx_optik >= 1) {
-        t_center_bit = t_first_pulse_center + (idx_optik - 1) * bit_period;
-
-        if (t_center_bit <= max(t_out)) {
-            t_win_start = t_center_bit - 0.5 * bit_period;
-            t_win_end   = t_center_bit + 0.5 * bit_period;
-            
-            idx_search = find(t_out >= t_win_start and t_out <= t_win_end);
-
-            if (length(idx_search) > 0) {
-                sub_0 = amp_out_0(idx_search);
-                sub_1 = amp_out_1(idx_search);
-                
-                idx_peak_0 = idx_search(1) + find(sub_0 == max(sub_0)) - 1;
-                idx_peak_1 = idx_search(1) + find(sub_1 == max(sub_1)) - 1;
-                
-                t_peak_0 = t_out(idx_peak_0(1));
-                t_peak_1 = t_out(idx_peak_1(1));
-
-                idx_gate_0 = find(t_out >= (t_peak_0 - gate_width/2) and t_out <= (t_peak_0 + gate_width/2));
-                idx_gate_1 = find(t_out >= (t_peak_1 - gate_width/2) and t_out <= (t_peak_1 + gate_width/2));
-
-                if (length(idx_gate_0) > 1) { energy_0 = integrate(amp_out_0(idx_gate_0), 1, t_out(idx_gate_0)); }
-                if (length(idx_gate_1) > 1) { energy_1 = integrate(amp_out_1(idx_gate_1), 1, t_out(idx_gate_1)); }
+        if (basis_a == basis_b) {
+            match = "MATCHED";
+            n_matched = n_matched + 1;
+            status = "OK";
+            if (bit_b != bit_a) {
+                status = "BIT_ERROR";
+                n_bit_err = n_bit_err + 1;
+            } else if (contrast < min_contrast_dB) {
+                status = "LOW_CONTRAST";
+                n_low = n_low + 1;
             }
-
-            min_energy_threshold = 0.05 * (max_tot_power * gate_width);
-
-            if ((energy_0 + energy_1) < min_energy_threshold) {
-                bit_bob = "Error/No Signal";
-                error_status = "NO_SIGNAL";
-            } else {
-                e_max = max([energy_0, energy_1]);
-                e_min = min([energy_0, energy_1]);
-
-                if (e_min > 0) {
-                    er_bit = 10 * log10(e_max / e_min);
-                } else {
-                    er_bit = 100; 
-                }
-
-                if (energy_0 > 3 * energy_1) {
-                    bit_bob = "0";
-                } else if (energy_1 > 3 * energy_0) {
-                    bit_bob = "1";
-                } else {
-                    bit_bob = "x";
-                }
-
-                seq_str = "Bit " + num2str(val_bit_alice) + ", Basis Alice " + num2str(val_basis_alice) + " -> Basis Bob " + num2str(val_basis_bob);
-
-                # --- EVALUASI ERROR DAN MATCHING BASIS ---
-                if (val_basis_alice == val_basis_bob) {
-                    match_status = "MATCHED";
-                    count_matched = count_matched + 1;
-
-                    if (val_bit_alice == 0) {
-                        count_matched_bit0 = count_matched_bit0 + 1;
-                    } else {
-                        count_matched_bit1 = count_matched_bit1 + 1;
-                    }
-
-                    # DETEKSI ERROR MATCHED: Bit Bob tidak sama dengan Bit Alice
-                    if (bit_bob != num2str(val_bit_alice)) {
-                        error_status = "ERROR_BIT_FLIP";
-                        count_bit_errors = count_bit_errors + 1;
-                    }
-
-                    # Worst case Matched (ER Terendah)
-                    if (er_bit < worst_matched_er) {
-                        worst_matched_er = er_bit;
-                        worst_matched_bit = i;
-                        worst_matched_str = seq_str;
-                        worst_matched_e0 = energy_0;
-                        worst_matched_e1 = energy_1;
-                    }
-                } else {
-                    match_status = "MISMATCHED";
-                    count_mismatched = count_mismatched + 1;
-
-                    # DETEKSI ERROR MISMATCHED: Power Imbalance Terlalu Tinggi (> 3 dB deviasi dari 0 dB)
-                    dev_from_zero = abs(er_bit);
-                    if (dev_from_zero > 3.0) { 
-                        error_status = "ERROR_POWER_IMBALANCE";
-                        count_imbalance_errors = count_imbalance_errors + 1;
-                    }
-
-                    # Worst case Mismatched (Deviasi Terbesar dari 0 dB)
-                    if (dev_from_zero > worst_mismatched_dev) {
-                        worst_mismatched_dev = dev_from_zero;
-                        worst_mismatched_er = er_bit;
-                        worst_mismatched_bit = i;
-                        worst_mismatched_str = seq_str;
-                        worst_mismatched_e0 = energy_0;
-                        worst_mismatched_e1 = energy_1;
-                    }
-                }
-            }
+            s = 2 * basis_a + bit_a + 1;
+            state_count(s) = state_count(s) + 1;
+            state_sum(s) = state_sum(s) + contrast;
+            if (contrast < state_min(s)) { state_min(s) = contrast; state_slot(s) = i; }
         } else {
-            bit_bob = "Habis";
+            # mismatched basis: Bob's bit is random and the slot is discarded at sifting
+            match = "MISMATCHED";
+            status = "SIFTED_OUT";
+            if (contrast > max_imbalance_dB) {
+                status = "SIFTED_OUT_IMBALANCED";
+                n_imb = n_imb + 1;
+            }
+            if (contrast > worst_imbalance) { worst_imbalance = contrast; worst_imbalance_slot = i; }
         }
-    } else {
-        bit_bob = "Belum Mulai";
+
+        write(filename, num2str(i) + "," + num2str(basis_a) + "," + num2str(bit_a) + "," +
+              num2str(basis_b) + "," + num2str(e_0) + "," + num2str(e_1) + "," + num2str(bit_b) + "," +
+              num2str(contrast) + "," + match + "," + status);
     }
-
-    # Write to CSV
-    str_line = num2str(i) + ", " + 
-               num2str(val_bit_alice) + ", " + 
-               num2str(val_basis_alice) + ", " + 
-               num2str(val_basis_bob) + ", " + 
-               num2str(energy_0) + ", " + 
-               num2str(energy_1) + ", " + 
-               bit_bob + ", " + 
-               num2str(er_bit) + ", " + 
-               match_status + ", " + 
-               error_status;
-
-    write(filename, str_line);
 }
 
-# ==========================================
-# REKAPITULASI SUMMARY & DETEKSI ERROR
-# ==========================================
-print("=========================================================================");
-print("                    RINGKASAN TRANSKRIP BB84 QKD                         ");
-print("=========================================================================");
-print("Total Bit Diuji            : " + num2str(num_bits));
-print("Total Matched Bases        : " + num2str(count_matched) + " (" + num2str(count_matched/num_bits * 100) + "%)");
-print("  - Bit 0 Alice            : " + num2str(count_matched_bit0));
-print("  - Bit 1 Alice            : " + num2str(count_matched_bit1));
-print("Total Mismatched Bases     : " + num2str(count_mismatched) + " (" + num2str(count_mismatched/num_bits * 100) + "%)");
-print("-------------------------------------------------------------------------");
-print("                         DETEKSI ERROR FISIK                             ");
-print("-------------------------------------------------------------------------");
-print("Bit Flip Errors (Matched)  : " + num2str(count_bit_errors));
-if (count_matched > 0) {
-    qber = (count_bit_errors / count_matched) * 100;
-    print("Quantum Bit Error Rate     : " + num2str(qber) + "%");
+# ---------------- summary ----------------
+?"======================================================================";
+?" BB84 transcript summary  (" + num2str(bit_rate / 1e6) + " Mbps, " + channel +
+ " channel, " + num2str(gate_width * 1e9) + " ns gate)";
+?"======================================================================";
+?"Slots evaluated        : " + num2str(n_slots);
+?"Matched basis (sifted) : " + num2str(n_matched) + "  (" + num2str(round(100 * n_matched / n_slots)) + " %)";
+?"Bit errors (matched)   : " + num2str(n_bit_err) + "  (" + num2str(100 * n_bit_err / max([n_matched, 1])) + " %)";
+?"Low contrast (< " + num2str(min_contrast_dB) + " dB) : " + num2str(n_low);
+?"----------------------------------------------------------------------";
+?"Matched-basis ER per Alice state      count   min (dB)   mean (dB)   worst slot";
+for (s = 1:4) {
+    if (state_count(s) > 0) {
+        ?"  " + state_name{s} + "      " + num2str(state_count(s)) + "      " +
+         num2str(state_min(s)) + "      " + num2str(state_sum(s) / state_count(s)) + "      " + num2str(state_slot(s));
+    }
 }
-print("Power Imbalance Errors     : " + num2str(count_imbalance_errors) + " (Deviasi > 3 dB pada Mismatched)");
-print("-------------------------------------------------------------------------");
-print("                   WORST-CASE EXTINCTION RATIO                           ");
-print("-------------------------------------------------------------------------");
-
-if (count_matched > 0) {
-    print("[1] MATCHED BASIS (Target: Suppression Terendah)");
-    print("    - Worst-Case ER        : " + num2str(worst_matched_er) + " dB");
-    print("    - Lokasi               : Bit Ke-" + num2str(worst_matched_bit));
-    print("    - State Transmisi      : " + worst_matched_str);
-    print("    - Rincian Energi SPAD  : Energy0 = " + num2str(worst_matched_e0) + " J | Energy1 = " + num2str(worst_matched_e1) + " J");
+?"----------------------------------------------------------------------";
+?"Mismatched basis: worst split imbalance " + num2str(worst_imbalance) + " dB (slot " +
+ num2str(worst_imbalance_slot) + "), " + num2str(n_imb) + " slots above " + num2str(max_imbalance_dB) + " dB";
+if (use_optical == 0) {
+    ?"Note: APD channel - ER values are set by the receiver noise floor, not by the chip.";
 }
-
-if (count_mismatched > 0) {
-    print("[2] MISMATCHED BASIS (Target: Deviasi Terbesar dari 0 dB)");
-    print("    - Worst-Case ER        : " + num2str(worst_mismatched_er) + " dB (Deviasi: " + num2str(worst_mismatched_dev) + " dB dari 0 dB)");
-    print("    - Lokasi               : Bit Ke-" + num2str(worst_mismatched_bit));
-    print("    - State Transmisi      : " + worst_mismatched_str);
-    print("    - Rincian Energi SPAD  : Energy0 = " + num2str(worst_mismatched_e0) + " J | Energy1 = " + num2str(worst_mismatched_e1) + " J");
-}
-
-print("=========================================================================");
-print("File " + filename + " berhasil diperbarui!");
+?"Written: " + filename;

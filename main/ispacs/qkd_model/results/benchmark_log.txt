@@ -1,0 +1,26 @@
+C:\GithubRepositories\bb84_photonics\main\ispacs\qkd_model\qkd_model.py:206: RuntimeWarning: overflow encountered in scalar multiply
+  arg = (sK1 + sT1) / (sK1 * sT1 * (1 - b) * b) * 21**2 / eps_sec**2
+C:\GithubRepositories\bb84_photonics\main\ispacs\qkd_model\qkd_model.py:207: RuntimeWarning: overflow encountered in scalar multiply
+  gamma = np.sqrt((sK1 + sT1) * (1 - b) * b / (sK1 * sT1 * np.log(2)) * np.log2(max(arg, 1.0)))
+=== [A] Ma et al. 2005, GYS, asymptotic (rates per pulse, q = 1/2) ===
+ infinite decoys     : max distance 142.02 km (paper text 142.05 km, figure 141.9 km); rate / paper curve 0.999-1.011
+ vacuum + weak decoy : max distance 140.62 km (paper text 140.55 km, figure 140.4 km); rate / paper curve 0.998-1.033
+ optimal mu at 20 km: 0.482 for f = 1.22 (paper 0.48), 0.547 for f = 1 (paper 0.54)
+
+=== [B] Lo, Ma, Chen 2005, GYS, GLLP without decoys (f = 1) ===
+ paper figure ends at 31.9 km (text: 'only about 30 km'); mu is not stated in the paper
+ optimal mu at every distance : max distance  43.00 km
+ fixed mu = 0.012, q = 1/2    : max distance  30.53 km, rate / paper curve 0.93-1.62 (consistent, but settings not stated)
+
+=== [C] Lim et al. 2014, finite key (rates per pulse) ===
+ n_X = 1e4: reach to 1e-7  118.6 km (paper figure 134.6 km); rate / paper curve 0.032-0.468
+ n_X = 1e5: reach to 1e-7  150.6 km (paper figure 156.1 km); rate / paper curve 0.365-0.832
+ n_X = 1e6: reach to 1e-7  165.0 km (paper figure 167.5 km); rate / paper curve 0.749-0.964
+ n_X = 1e7: reach to 1e-7  172.0 km (paper figure 173.2 km); rate / paper curve 0.980-1.034
+ n_X = 1e8: reach to 1e-7  175.0 km (paper figure 177.1 km); rate / paper curve 1.027-1.047
+ n_X = 1e9: reach to 1e-7  179.8 km (paper figure 179.6 km); rate / paper curve 1.041-1.075
+ R(1e9) / R(1e7) at 100 km: 1.79 (paper text ~1.75)
+ asymptotic: reach to 1e-7  185.1 km (paper figure 191.9 km); rate / paper curve 0.396-0.977
+
+saved C:\GithubRepositories\bb84_photonics\main\ispacs\qkd_model\figures\fig_benchmark_published.png
+DONE

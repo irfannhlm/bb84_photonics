@@ -2,7 +2,9 @@ data/
 *_sweep*/
 
 CML_Test
-Transkrip*
+*transcript*
 *.ich
+*cache*
 
 *.hdf5
+.vscode
